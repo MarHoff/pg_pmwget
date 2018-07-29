@@ -1,8 +1,8 @@
--- Function: get_url(text, numeric, numeric, integer)
+-- Function: wget_url(text, numeric, numeric, integer)
 
--- DROP FUNCTION @extschema@.get_url(text, numeric, numeric, integer);
+-- DROP FUNCTION @extschema@.wget_url(text, numeric, numeric, integer);
 
-CREATE OR REPLACE FUNCTION @extschema@.get_url(
+CREATE OR REPLACE FUNCTION @extschema@.wget_url(
     url @extschema@.url,
     wait numeric DEFAULT 0,
     timeout numeric DEFAULT 5,

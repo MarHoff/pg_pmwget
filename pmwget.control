@@ -1,5 +1,5 @@
-# pg_pmwq extension
-comment = 'Poor man web connector for PostgreSQL'
+# pg_pmwget extension
+comment = 'Poor man wget for PostgreSQL'
 default_version = 'dev'
 relocatable = false
 schema = 'public'
