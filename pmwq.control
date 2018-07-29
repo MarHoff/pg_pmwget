@@ -1,0 +1,6 @@
+# pg_pmwq extension
+comment = 'Poor man web connector for PostgreSQL'
+default_version = 'dev'
+relocatable = false
+schema = 'public'
+requires = 'plsh'
