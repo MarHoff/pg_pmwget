@@ -13,11 +13,10 @@ TESTS = $(wildcard test/sql/*.sql)
 usage:
 	@echo 'pg_pmwget usage : "make install" to instal the extension, "make build" to build dev version against source SQL'
 
-.PHONY : build
 build : pmwget--dev.sql
-	@echo 'Building develloper version'
 
 pmwget--dev.sql : $(DOMAIN) $(FUNCTION) 
+	@echo 'Building develloper version'
 	cat $(DOMAIN) > $@ && cat $(FUNCTION) >> $@
 
 .PHONY : test

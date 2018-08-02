@@ -14,18 +14,15 @@ CREATE OR REPLACE FUNCTION @extschema@.wget_urls_raw
   RETURNS text AS
 $BODY$
 #!/bin/sh
-export FRAPI_WAIT=$2
-export FRAPI_TIMOUT=$3
-export FRAPI_TRIES=$4
+export HOME='/tmp'
+export WGET_STRING="$1"
+export WGET_WAIT=$2
+export WGET_TIMEOUT=$3
+export WGET_TRIES=$4
+export WGET_WORKERS=$5
 export WGET_TOKEN=$6
-pexec -a '%l' -p "$1" -e URL -n $5 -R -c 'echo "$URL$WGET_TOKEN$(wget -T $FRAPI_TIMOUT -t $FRAPI_TRIES -qO- $URL)$WGET_TOKEN$WGET_TOKEN"'
-#Options
-# -p <space separated list of parameters>
-# -e <environmental variable name>
-# -n <number of parallel processes>
-# -R --normal-redirection (This is equivalent to specifying --output - and --error - and --input /dev/null)
-# -c Use a shell (see -s|--shell also) to interpret the command(s) instead of direct execution.
-# -a --output-format <Ioutput line format> (The line buffering yielded by the simple format of %l can also be useful if all of the standard outputs (or errors) are collected in a single file and the invoker wants to avoid the inter-line confusion of output (i.e. if this redirection formatting is omitted, no line buffering is done at all).)
+parallel -j $WGET_WORKERS 'echo -n {};echo -n $WGET_TOKEN;wget -T $WGET_TIMEOUT -t $WGET_TRIES -qO- {};echo $WGET_TOKEN$WGET_TOKEN' ::: $WGET_STRING
+#TODO quickly explain parallel usage
 $BODY$
   LANGUAGE plsh VOLATILE
   COST 200;
