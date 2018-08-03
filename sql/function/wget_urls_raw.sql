@@ -21,7 +21,7 @@ export WGET_TIMEOUT=$3
 export WGET_TRIES=$4
 export WGET_WORKERS=$5
 export WGET_TOKEN=$6
-parallel -j $WGET_WORKERS 'echo -n {};echo -n $WGET_TOKEN;wget -T $WGET_TIMEOUT -t $WGET_TRIES -qO- {};echo $WGET_TOKEN$WGET_TOKEN' ::: $WGET_STRING
+parallel -j $WGET_WORKERS 'echo -n {};echo -n $WGET_TOKEN; START_TIME=$(date +"%F %T.%6N"); wget -T $WGET_TIMEOUT -t $WGET_TRIES -qO- {}; END_TIME=$(date +"%F %T.%6N"); echo $WGET_TOKEN$START_TIME$WGET_TOKEN$END_TIME$WGET_TOKEN$WGET_TOKEN' ::: $WGET_STRING
 #TODO quickly explain parallel usage
 $BODY$
   LANGUAGE plsh VOLATILE
