@@ -4,13 +4,15 @@
 
 CREATE OR REPLACE FUNCTION @extschema@.wget_url(
     url @extschema@.url,
-    wait numeric DEFAULT 0,
-    timeout numeric DEFAULT 5,
-    tries integer DEFAULT 3)
+    min_latency double precision DEFAULT 0,
+    timeout double precision DEFAULT 5,
+    tries integer DEFAULT 1,
+    waitretry double precision DEFAULT 10
+    )
   RETURNS text AS
 $BODY$
 #!/bin/sh
-sleep $2 & wget -T $3 -t $4 -qO- "$1" & wait
+sleep $2 & wget --timeout=$3 --tries=$4 --waitretry=$5 -qO- "$1" & wait
 $BODY$
   LANGUAGE plsh VOLATILE
   PARALLEL SAFE
