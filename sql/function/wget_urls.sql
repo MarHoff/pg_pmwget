@@ -38,20 +38,6 @@ DECLARE
         FROM tbatches
         GROUP BY tbatches.batch ORDER BY tbatches.batch;
 BEGIN
-
-WITH tunnest AS (SELECT DISTINCT unnest(url_array) url)
-SELECT
-   url::public.url,
-   NULL::text payload,
-   NULL::timestamptz ts_end,
-   NULL::double precision duration ,
-   NULL::bigint batch,
-   NULL::integer retries
-FROM tunnest
-
-
-
-
   FOR current_batch IN batches LOOP
     RETURN QUERY
       WITH RECURSIVE
