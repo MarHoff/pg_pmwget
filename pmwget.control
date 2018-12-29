@@ -1,0 +1,6 @@
+# pg_pmwget extension
+comment = 'Poor man wget for PostgreSQL'
+default_version = '0.1'
+relocatable = false
+schema = 'public'
+requires = 'plsh'
