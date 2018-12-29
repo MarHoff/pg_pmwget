@@ -3,18 +3,21 @@
 CREATE OR REPLACE FUNCTION @extschema@.wget_urls
 (
   url_array @extschema@.url_array ,
-  b_min_latency double precision DEFAULT 0,
-  b_timeout double precision DEFAULT 5,
-  b_tries integer DEFAULT 1,
-  b_waitretry double precision DEFAULT 0,
-  b_parallel_jobs integer DEFAULT 10,
-  b_delimiter text DEFAULT '@wget_token@',
+  i_min_latency double precision DEFAULT 0,
+  i_timeout double precision DEFAULT 5,
+  i_tries integer DEFAULT 1,
+  i_waitretry double precision DEFAULT 0,
+  i_parallel_jobs integer DEFAULT 10,
+  i_delimiter text DEFAULT '@wget_token@',
+  i_delay double precision DEFAULT 0,
   r_min_latency double precision DEFAULT 0,
   r_timeout double precision DEFAULT 5,
   r_tries integer DEFAULT 1,
   r_waitretry double precision DEFAULT 0,
+  r_parallel_jobs integer DEFAULT 10,
+  r_delimiter text DEFAULT '@wget_token@',
+  r_delay double precision DEFAULT 0,
   batch_size integer DEFAULT 2000,
-  batch_delay double precision DEFAULT 0,
   batch_retries integer DEFAULT 1,
   batch_retries_failrate double precision DEFAULT 0.05
 )
@@ -41,23 +44,6 @@ BEGIN
   FOR current_batch IN batches LOOP
     RETURN QUERY
       WITH RECURSIVE
-      twget_raw as (
-        SELECT *
-          FROM @extschema@.wget_urls_raw(
-            array_to_string(current_batch.url_array, ' '),
-            min_latency := b_min_latency,
-            timeout := b_timeout,
-            tries := b_tries,
-            waitretry := b_waitretry,
-            parallel_jobs := b_parallel_jobs,
-            delimiter := b_delimiter,
-            delay := (CASE WHEN current_batch.batch<>1 THEN batch_delay ELSE 0 END)
-          )
-      ),
-      texplode AS (
-        SELECT
-          regexp_split_to_array(regexp_split_to_table((SELECT * FROM twget_raw), '@wget_token@@wget_token@\n'),'@wget_token@') r
-      ),
       trecurse AS (
           SELECT
             r[1]::@extschema@.url  url,
@@ -67,23 +53,67 @@ BEGIN
             current_batch.batch,
             0 as retries,
             (count(*) FILTER (WHERE NULLIF(r[2], '') is NULL) OVER ())/((count(*) OVER ())::double precision) batch_failrate
-            FROM texplode
+            FROM (
+              SELECT
+                regexp_split_to_array(
+                  regexp_split_to_table(
+                    (SELECT * FROM
+                      @extschema@.wget_urls_raw(
+                        array_to_string(current_batch.url_array, ' '),
+                        min_latency := i_min_latency,
+                        timeout := i_timeout,
+                        tries := i_tries,
+                        waitretry := i_waitretry,
+                        parallel_jobs := i_parallel_jobs,
+                        delimiter := i_delimiter,
+                        delay := (CASE WHEN current_batch.batch<>1 THEN i_delay ELSE 0 END)
+                      )
+                    ),
+                    '@wget_token@@wget_token@\n'),
+                  '@wget_token@') r
+            ) inititial_try
         UNION ALL
           SELECT
-            trecurse.url,
-            wget_url(
-              trecurse.url,
-              min_latency:= r_min_latency,
-              timeout:= r_timeout,
-              tries:= r_tries,
-              waitretry:= r_waitretry
-            ) payload,
-            clock_timestamp()::timestamptz ts_end,
-            NULL duration,
-            trecurse.batch,
-            trecurse.retries+1 as retries,
-            trecurse.batch_failrate
-          FROM trecurse WHERE trecurse.payload IS NULL AND trecurse.retries < batch_retries AND trecurse.batch_failrate <= batch_retries_failrate
+            r[1]::@extschema@.url  url,
+            NULLIF(r[2], '') payload,
+            r[4]::timestamptz ts_end,
+            EXTRACT(EPOCH FROM (r[4]::timestamptz-r[3]::timestamptz))::double precision duration,
+            recurse_try.batch,
+            recurse_try.retries+1 as retries,
+            recurse_try.batch_failrate
+            FROM (
+              SELECT
+                regexp_split_to_array(
+                  regexp_split_to_table(
+                    (SELECT * FROM
+                      @extschema@.wget_urls_raw(
+                        array_to_string(
+                        wget_agg.urls_retry,
+                          ' '),
+                        min_latency := r_min_latency,
+                        timeout := r_timeout,
+                        tries := r_tries,
+                        waitretry := r_waitretry,
+                        parallel_jobs := r_parallel_jobs,
+                        delimiter := r_delimiter,
+                        delay := r_delay
+                      )
+                    ),
+                    '@wget_token@@wget_token@\n'),
+                  '@wget_token@') r,
+                wget_agg.batch,
+                wget_agg.retries,
+                wget_agg.batch_failrate
+              FROM (
+                SELECT array_agg(source_recurse.url::text) as urls_retry, source_recurse.batch, source_recurse.retries, source_recurse.batch_failrate
+                FROM (
+                  SELECT trecurse.url, trecurse.payload, trecurse.batch,  trecurse.retries, trecurse.batch_failrate, trecurse.retries=(max(trecurse.retries) OVER (PARTITION BY trecurse.url)) as is_last
+                  FROM trecurse
+                ) source_recurse
+                WHERE source_recurse.is_last AND source_recurse.retries < batch_retries AND source_recurse.payload IS NULL AND source_recurse.batch_failrate <= batch_retries_failrate
+                GROUP BY source_recurse.batch, source_recurse.retries, source_recurse.batch_failrate
+              ) wget_agg
+            ) recurse_try
       ),
       tfilter AS (
         SELECT
